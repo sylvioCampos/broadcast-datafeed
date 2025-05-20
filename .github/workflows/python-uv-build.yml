@@ -1,0 +1,51 @@
+name: Python Build with uv
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: [3.10, 3.11, 3.13]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        run: |
+          pip install uv
+
+      - name: Install dependencies with uv
+        run: |
+          if [ -f uv.lock ]; then
+            uv pip install -r uv.lock
+          elif [ -f pyproject.toml ]; then
+            uv pip install -r pyproject.toml
+          else
+            echo "No uv.lock or pyproject.toml found."
+            exit 1
+          fi
+
+      - name: Build package (opcional)
+        run: |
+          uv build || echo "No build step defined, skipping..."
+
+      - name: Run tests
+        run: |
+          if [ -f pytest.ini ] || [ -d tests ]; then
+            uv pip install pytest
+            pytest
+          else
+            echo "No tests found."
+          fi

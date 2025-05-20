@@ -10,3 +10,6 @@ wheels/
 .venv
 .env
 .env.*
+
+# Test coverage
+.coverage
