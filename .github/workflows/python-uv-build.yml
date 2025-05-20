@@ -8,7 +8,6 @@ on:
 
 jobs:
   build:
-    name: python
     runs-on: ubuntu-latest
 
     steps:
@@ -22,17 +21,16 @@ jobs:
         with:
           python-version-file: ".python-version"
 
-      - name: Install the project
+      - name: Install dependencies
         run: uv sync --locked --all-extras --dev
 
-      - name: Build package (opcional)
-        run: |
-          uv build || echo "No build step defined, skipping..."
+      - name: Run tests with coverage
+        run: uv run pytest --cov=broadcast --cov-report=xml
 
-      - name: Run tests
-        run: |
-          if [ -f pytest.ini ] || [ -d tests ]; then
-            uv run pytest --cov=nome_do_pacote --cov-report=xml
-          else
-            echo "No tests found."
-          fi
+      - name: Upload coverage report to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}    # se repo for privado
+          files: coverage.xml
+          flags: unittests
+          fail_ci_if_error: true
