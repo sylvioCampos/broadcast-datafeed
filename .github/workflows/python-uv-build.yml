@@ -32,7 +32,7 @@ jobs:
       - name: Run tests
         run: |
           if [ -f pytest.ini ] || [ -d tests ]; then
-            uv run pytest
+            uv run pytest --cov=nome_do_pacote --cov-report=xml
           else
             echo "No tests found."
           fi
