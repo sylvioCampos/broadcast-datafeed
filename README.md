@@ -1,3 +1,8 @@
+![Build Status](https://github.com/sylvioCampos/broadcast/actions/workflows/python-uv-build.yml/badge.svg)
+[![codecov](https://codecov.io/gh/sylvioCampos/broadcast/branch/main/graph/badge.svg)](https://codecov.io/gh/sylvioCampos/broadcast)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub last commit](https://img.shields.io/github/last-commit/sylvioCampos/broadcast.svg)](https://github.com/sylvioCampos/broadcast/commits/main)
+
 # Broadcast
 
 A Python client for interacting with the AEBroadcast API service.  
