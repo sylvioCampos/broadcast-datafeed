@@ -27,13 +27,11 @@ Examples:
 __author__ = "Sylvio Campos Neto"
 __copyright__ = "Copyright (c) 2025 Warren Investimentos"
 __license__ = "MIT"
-__version__ = "0.1.0"
+__version__ = "0.1.2"
 __email__ = "sylvio.campos@warren.com.br"
 __all__ = ["Broadcast"]
 
 import httpx
-import ssl
-import truststore
 from typing import Any
 from gevent import monkey
 monkey.patch_all()  # noqa: E402
@@ -55,8 +53,7 @@ class Broadcast:
             "accept": "application/json",
             "Content-Type": "application/json",
         }
-        self.ctx = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        self.client = httpx.Client(headers=self.headers, timeout=None, verify=self.ctx)
+        self.client = httpx.Client(headers=self.headers, timeout=None, verify=False)
         self.tokens: dict[str, Any] = self.login(usr, pwd)
         self.token: str = self.tokens["token"]
         self.refreshToken: str = self.tokens["refreshToken"]
