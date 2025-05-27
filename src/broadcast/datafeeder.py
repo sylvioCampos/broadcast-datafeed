@@ -33,8 +33,7 @@ __all__ = ["Broadcast"]
 
 import httpx
 from typing import Any
-from gevent import monkey
-monkey.patch_all()  # noqa: E402
+
 
 class Broadcast:
     def __init__(self, usr: str, pwd: str, keep_alive: bool = False) -> None:
