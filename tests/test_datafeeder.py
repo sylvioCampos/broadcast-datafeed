@@ -214,35 +214,46 @@ class TestBroadcast:
 
     def test_token_refresh_failure(self, mock_httpx_client):
         """Tests if token refresh properly handles failures."""
-        # Setup
+        # 1) First, let login succeed (using the fixture’s default login_response)
+        broadcast = Broadcast("test_user", "test_password")
+        mock_httpx_client.post.assert_called_once()  # login was called
+
+        # 2) Now reset post and simulate failure on refresh only
+        mock_httpx_client.post.reset_mock()
         mock_httpx_client.post.side_effect = Exception("Refresh failed")
 
-        # Execute
-        broadcast = Broadcast("test_user", "test_password")
-        mock_httpx_client.post.reset_mock()  # Reset mock to ignore login call
-        mock_httpx_client.post.side_effect = Exception("Refresh failed")
+        # 3) Execute refresh
         result = broadcast.token_refresh()
 
-        # Assert
+        # 4) Assert it returned False and post was called exactly once
         assert result is False
+        mock_httpx_client.post.assert_called_once_with(
+            url="https://svc.aebroadcast.com.br/Authentication/v1/refresh",
+            json={"refreshToken": "fake_refresh_token", "token": "fake_token"},
+        )
 
     def test_get_quote_success(self, mock_httpx_client):
         """Tests if quote retrieval is successful."""
-        # Setup
+        # Setup quote response
         quote_response = MagicMock()
         quote_data = {
-            "symbols": {
-                "PETR4": {"price": 28.50, "change": 1.25},
-                "VALE3": {"price": 68.45, "change": -0.50},
+            "data": {
+                "PETR4": {"ULT": "28,50", "VAR": "1,25%"},
+                "VALE3": {"ULT": "68,45", "VAR": "-0,50%"},
             }
         }
         quote_response.json.return_value = quote_data
+
+        # 1) Instancia e consome o login (mock de login já configurado)
+        broadcast = Broadcast("test_user", "test_password")
+        mock_httpx_client.post.assert_called_once()
+
+        # 2) Agora reset e injeta o mock de cotações
+        mock_httpx_client.post.reset_mock()
         mock_httpx_client.post.return_value = quote_response
 
-        # Execute
-        broadcast = Broadcast("test_user", "test_password")
-        mock_httpx_client.post.reset_mock()  # Reset mock to ignore login call
-        result = broadcast.get_quote(symbols=["PETR4", "VALE3"])
+        # 3) Executa e verifica
+        result = broadcast.get_quote(symbols=["PETR4", "VALE3"], fields=["ULT", "VAR"])
 
         # Assert
         assert result == quote_data
@@ -255,20 +266,27 @@ class TestBroadcast:
         """Tests quote retrieval with specific fields."""
         # Setup
         quote_response = MagicMock()
-        quote_data = {"symbols": {"PETR4": {"price": 28.50}, "VALE3": {"price": 68.45}}}
-        quote_response.json.return_value = quote_data
+        quote_data = {
+            'data': {
+                "PETR4": {'ULT': '32,09', 'COD': 'PETR4'}, 
+                "VALE3": {'ULT': '55,35', 'COD': 'VALE3'},
+            }    
+        }
+        # 1) Instancia e consome o login (mock de login já configurado)
+        broadcast = Broadcast("test_user", "test_password")
+        mock_httpx_client.post.assert_called_once()
+
+        # 2) Agora reset e injeta o mock de cotações
+        mock_httpx_client.post.reset_mock()
         mock_httpx_client.post.return_value = quote_response
 
-        # Execute
-        broadcast = Broadcast("test_user", "test_password")
-        mock_httpx_client.post.reset_mock()  # Reset mock to ignore login call
-        result = broadcast.get_quote(symbols=["PETR4", "VALE3"], fields=["price"])
+        result = broadcast.get_quote(symbols=["PETR4", "VALE3"], fields=["ULT"])
 
         # Assert
         assert result == quote_data
         mock_httpx_client.post.assert_called_with(
             url="https://svc.aebroadcast.com.br/stock/v1/quote/request",
-            json={"symbols": ["PETR4", "VALE3"], "fields": ["price"]},
+            json={"symbols": ["PETR4", "VALE3"], "fields": ["ULT"]},
         )
 
     def test_get_quote_failure(self, mock_httpx_client):

@@ -1,6 +1,6 @@
 [project]
 name = "broadcast"
-version = "0.1.0"
+version = "0.1.1"
 description = "Add your description here"
 readme = "README.md"
 authors = [
@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
+    "gevent>=25.5.1",
     "httpx>=0.28.1",
     "truststore>=0.10.1",
 ]
