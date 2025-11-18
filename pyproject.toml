@@ -1,5 +1,5 @@
 [project]
-name = "broadcast"
+name = "broadcast-datafeed"
 version = "1.0.0"
 description = "Python client for interacting with the AEBroadcast API service"
 readme = "README.md"
