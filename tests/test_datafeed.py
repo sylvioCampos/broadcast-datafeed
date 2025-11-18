@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2025 Sylvio Neto
 # SPDX-License-Identifier: MIT
 
 """
@@ -87,6 +86,55 @@ class TestBroadcast:
         # Verify that login is called during initialization
         mock_httpx_client.post.assert_called_once()
 
+    def test_init_with_keep_alive(self, mock_httpx_client):
+        """Tests if initialization with keep_alive=True calls keep_alive method."""
+        # Setup keep_alive response
+        keep_alive_response = MagicMock()
+        keep_alive_response.json.return_value = {"status": "session_extended"}
+        mock_httpx_client.get.return_value = keep_alive_response
+
+        # Execute
+        broadcast = Broadcast("test_user", "test_password", keep_alive=True)
+
+        # Assert
+        assert broadcast.usr == "test_user"
+        assert broadcast.token == "fake_token"
+        # Verify keep_alive was called after login
+        mock_httpx_client.get.assert_called_once_with(
+            url="https://svc.aebroadcast.com.br/Authentication/v1/keep"
+        )
+
+    def test_init_with_ssl_verification(self, mock_httpx_client):
+        """Tests if initialization respects verify_ssl parameter."""
+        with patch("httpx.Client") as mock_client_class:
+            client_instance = MagicMock()
+            client_instance.headers = {}
+            mock_client_class.return_value = client_instance
+
+            login_response = MagicMock()
+            login_response.json.return_value = {
+                "token": "fake_token",
+                "refreshToken": "fake_refresh_token",
+            }
+            client_instance.post.return_value = login_response
+
+            # Test with verify_ssl=True (default)
+            _ = Broadcast("test_user", "test_password", verify_ssl=True)
+            mock_client_class.assert_called_with(
+                headers={"accept": "application/json", "Content-Type": "application/json"},
+                timeout=None,
+                verify=True
+            )
+
+            # Test with verify_ssl=False
+            mock_client_class.reset_mock()
+            _ = Broadcast("test_user", "test_password", verify_ssl=False)
+            mock_client_class.assert_called_with(
+                headers={"accept": "application/json", "Content-Type": "application/json"},
+                timeout=None,
+                verify=False
+            )
+
     def test_login_success(self, mock_httpx_client, test_credentials):
         """Tests if login is successful."""
         broadcast = Broadcast(
@@ -156,6 +204,29 @@ class TestBroadcast:
         )
         assert broadcast.client.headers["authorization"] == "Bearer fake_token"
 
+    def test_logout_request_error(self, mock_httpx_client):
+        """Tests if logout properly handles request errors."""
+        broadcast = Broadcast("test_user", "test_password")
+        mock_httpx_client.get.side_effect = httpx.RequestError(
+            "Connection error", request=MagicMock()
+        )
+
+        with pytest.raises(httpx.RequestError):
+            broadcast.logout()
+
+    def test_logout_http_error(self, mock_httpx_client):
+        """Tests if logout properly handles HTTP errors."""
+        broadcast = Broadcast("test_user", "test_password")
+        response = MagicMock()
+        response.status_code = 401
+        response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "401 Unauthorized", request=MagicMock(), response=response
+        )
+        mock_httpx_client.get.return_value = response
+
+        with pytest.raises(httpx.HTTPStatusError):
+            broadcast.logout()
+
     def test_keep_alive(self, mock_httpx_client):
         """Tests if keep_alive is performed correctly."""
         # Setup
@@ -172,6 +243,29 @@ class TestBroadcast:
         mock_httpx_client.get.assert_called_with(
             url="https://svc.aebroadcast.com.br/Authentication/v1/keep"
         )
+
+    def test_keep_alive_request_error(self, mock_httpx_client):
+        """Tests if keep_alive properly handles request errors."""
+        broadcast = Broadcast("test_user", "test_password")
+        mock_httpx_client.get.side_effect = httpx.RequestError(
+            "Connection error", request=MagicMock()
+        )
+
+        with pytest.raises(httpx.RequestError):
+            broadcast.keep_alive()
+
+    def test_keep_alive_http_error(self, mock_httpx_client):
+        """Tests if keep_alive properly handles HTTP errors."""
+        broadcast = Broadcast("test_user", "test_password")
+        response = MagicMock()
+        response.status_code = 401
+        response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "401 Unauthorized", request=MagicMock(), response=response
+        )
+        mock_httpx_client.get.return_value = response
+
+        with pytest.raises(httpx.HTTPStatusError):
+            broadcast.keep_alive()
 
     def test_token_refresh_success(self, mock_httpx_client):
         """Tests if token refresh is successful."""
@@ -295,9 +389,23 @@ class TestBroadcast:
         # Setup & execute
         broadcast = Broadcast("test_user", "test_password")
         mock_httpx_client.post.reset_mock()  # Reset mock to ignore login call
-        mock_httpx_client.post.side_effect = Exception("API error")
-        result = broadcast.get_quote(symbols=["PETR4", "VALE3"])
+        mock_httpx_client.post.side_effect = httpx.RequestError(
+            "API error", request=MagicMock()
+        )
 
-        # Assert
-        assert result["success"] is False
-        assert "API error" in result["message"]
+        with pytest.raises(httpx.RequestError):
+            broadcast.get_quote(symbols=["PETR4", "VALE3"])
+
+    def test_get_quote_http_error(self, mock_httpx_client):
+        """Tests if quote retrieval properly handles HTTP errors."""
+        broadcast = Broadcast("test_user", "test_password")
+        mock_httpx_client.post.reset_mock()
+        response = MagicMock()
+        response.status_code = 500
+        response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "500 Internal Server Error", request=MagicMock(), response=response
+        )
+        mock_httpx_client.post.return_value = response
+
+        with pytest.raises(httpx.HTTPStatusError):
+            broadcast.get_quote(symbols=["PETR4", "VALE3"])
