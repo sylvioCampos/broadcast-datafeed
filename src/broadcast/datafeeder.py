@@ -25,10 +25,9 @@ Examples:
 """
 
 __author__ = "Sylvio Campos Neto"
-__copyright__ = "Copyright (c) 2025 Warren Investimentos"
 __license__ = "MIT"
 __version__ = "0.1.2"
-__email__ = "sylvio.campos@warren.com.br"
+__email__ = "sylvio.campos@gmail.com.br"
 __all__ = ["Broadcast"]
 
 import httpx

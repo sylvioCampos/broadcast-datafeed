@@ -1,0 +1,42 @@
+name: Copilot Setup Steps
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, develop]
+
+jobs:
+  copilot-setup-steps:
+    name: copilot-setup-steps
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Astral UV
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          source ~/.bashrc
+      
+      - name: Verify UV Installation
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          uv --version
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: ".python-version"
+      
+      - name: Install dependencies with UV
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          uv sync --all-extras --dev
+      
+      - name: Validate Installation
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          uv run python -c "import brokertools; print('✅ BrokerTools package imported successfully')"

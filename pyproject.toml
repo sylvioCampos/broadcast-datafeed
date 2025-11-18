@@ -6,11 +6,9 @@ readme = "README.md"
 authors = [
     { name = "Sylvio Campos Neto", email = "sylvio.campos@warren.com.br" }
 ]
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 dependencies = [
-    "gevent>=25.5.1",
     "httpx>=0.28.1",
-    "truststore>=0.10.1",
 ]
 
 [build-system]
