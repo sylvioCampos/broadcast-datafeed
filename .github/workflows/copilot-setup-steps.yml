@@ -39,4 +39,4 @@ jobs:
       - name: Validate Installation
         run: |
           export PATH="$HOME/.local/bin:$PATH"
-          uv run python -c "import Broadcast; print('✅ BrokerTools package imported successfully')"
+          uv run python -c "import broadcast; print('✅ Broadcast package imported successfully')"
