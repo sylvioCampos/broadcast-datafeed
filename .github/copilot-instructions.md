@@ -2,112 +2,174 @@
 
 ## Project Overview
 
-This is a Python client library for interacting with the AEBroadcast API service. It provides authentication and methods to retrieve financial data, such as stock quotes, from the AEBroadcast platform.
+Python client library for the AEBroadcast API - a financial data service for Brazilian stock market quotes. Single-class design (`Broadcast`) with automatic session management and token refresh.
 
-## Technology Stack
+## Architecture & Key Patterns
 
-- **Python Version**: 3.14+ (see `.python-version`)
-- **Package Manager**: `uv` (modern Python package manager)
-- **HTTP Client**: `httpx` for making API requests
-- **Testing**: `pytest` with `pytest-cov` for coverage
-- **Linting**: `ruff` for code quality checks
-- **Type Checking**: Python type hints are used throughout
+### Stateful Session Management
+The `Broadcast` class maintains authentication state through its lifecycle:
+- **Auto-login on `__init__`**: Constructor calls `login()` and stores tokens immediately
+- **Token storage**: Both `token` and `refreshToken` (with `refresh_token` snake_case alias)
+- **Property pattern**: `refreshToken` property provides backward-compatible camelCase access
+- **Bearer auth**: All authenticated endpoints inject `authorization` header dynamically
 
-## Project Structure
-
+Example from `datafeed.py`:
+```python
+def __init__(self, usr: str, pwd: str, keep_alive: bool = False, verify_ssl: bool = True):
+    self.client = httpx.Client(headers=self.headers, timeout=None, verify=verify_ssl)
+    self.tokens: dict[str, Any] = self.login(usr, pwd)  # Auto-login
+    self.token: str = self.tokens["token"]
 ```
-src/broadcast/     # Main source code
-  __init__.py      # Package exports
-  datafeed.py      # Core Broadcast client class
-  py.typed         # PEP 561 marker for type hints
-tests/             # Test suite
-  test_datafeeder.py  # Unit tests for Broadcast class
-```
+
+### Error Handling Contract
+All API methods follow a consistent exception pattern:
+- Raise `httpx.RequestError` for connection/SSL failures
+- Raise `httpx.HTTPStatusError` for HTTP errors (use `response.raise_for_status()`)
+- Print error details before re-raising (helps debugging but may need review for production)
+- `token_refresh()` is the exception - returns `False` on error instead of raising
+
+### HTTP Client Architecture
+- Single `httpx.Client` instance stored in `self.client`
+- Base headers in `self.headers` (accept + content-type)
+- Auth header injected per-request: `self.client.headers["authorization"] = f"Bearer {self.token}"`
+- Configurable SSL verification via `verify_ssl` parameter (defaults to `True`)
 
 ## Development Workflow
 
-### Setting Up the Environment
-
+### Setup Commands
 ```bash
-# Install uv if not already installed
+# Install uv package manager
 pip install uv
 
-# Sync dependencies (installs from uv.lock)
+# Sync exact dependencies from lock file (CRITICAL: always use --locked)
 uv sync --locked --all-extras --dev
 ```
 
-### Running Tests
-
+### Test Environment Setup
+Create `.env.test` file in project root for test credentials (optional):
 ```bash
-# Run all tests with coverage
+BROADCAST_TEST_USER=your_test_username
+BROADCAST_TEST_PASSWORD=your_test_password
+```
+Tests use these environment variables via `pytest_configure` hook that loads dotenv. If not provided, defaults to `"test_user"` and `"test_password"`.
+
+### Testing Commands
+```bash
+# Run with coverage (matches CI configuration - target: 98%)
 uv run pytest --cov --cov=broadcast --cov-report=xml
 
-# Run specific test file
-uv run pytest tests/test_datafeeder.py -v
+# Verbose output for specific test
+uv run pytest tests/test_datafeed.py::TestBroadcast::test_get_quote_success -v
 ```
 
 ### Linting
-
 ```bash
-# Check code with ruff
+# Check only
 uv run ruff check .
 
-# Auto-fix issues where possible
+# Auto-fix safe issues
 uv run ruff check . --fix
 ```
 
-## Code Style Guidelines
+## Testing Patterns (Critical for New Tests)
 
-1. **Type Hints**: Always use type hints for function arguments and return values
-2. **Docstrings**: Use Google-style docstrings with Args, Returns, Raises sections
-3. **Error Handling**: Use specific exception types (httpx.RequestError, httpx.HTTPStatusError)
-4. **Variable Naming**: Use descriptive names with type annotations
-5. **Language**: Code comments and docstrings can be in Portuguese (project's natural language)
+### Mock Setup Pattern
+From `test_datafeed.py`:
+```python
+@pytest.fixture
+def mock_httpx_client():
+    with patch("httpx.Client") as mock_client:
+        client_instance = MagicMock()
+        client_instance.headers = {}  # Real dict, not mock
+        mock_client.return_value = client_instance
+        
+        # Setup default login response
+        login_response = MagicMock()
+        login_response.json.return_value = {"token": "fake_token", "refreshToken": "fake_refresh_token"}
+        client_instance.post.return_value = login_response
+        
+        yield client_instance
+```
 
-## API Client Patterns
+### Multi-step Test Pattern
+When testing after `__init__` (which calls `post` for login):
+```python
+broadcast = Broadcast("test_user", "test_password")  # Consumes one post call
+mock_httpx_client.post.reset_mock()  # Reset before testing your method
+mock_httpx_client.post.return_value = your_test_response
+result = broadcast.your_method()  # Now assertions are clean
+```
 
-When working with the Broadcast client:
+## Code Style Conventions (PEP 8 + Clean Code)
 
-1. **Authentication**: The client automatically handles login on initialization
-2. **Token Management**: Tokens are stored as instance attributes (`token`, `refreshToken`)
-3. **HTTP Headers**: Headers are managed centrally in `self.headers`
-4. **Error Handling**: All API methods should handle `httpx.RequestError` and `httpx.HTTPStatusError`
-5. **SSL**: The client currently uses `verify=False` for SSL (be aware of security implications)
+### Language Requirements
+- **ALL code in English**: Variables, functions, classes, docstrings, comments (PEP 8 requirement for public repos)
+- **No Portuguese**: Even for domain-specific terms - use English equivalents
+- **Examples**: Use `user` not `usuario`, `password` not `senha`, `quote` not `cotacao`
 
-## Testing Patterns
+### Type Annotations
+- **All function signatures**: Parameters and return types must have hints
+- **Modern syntax**: Use `dict[str, Any]` not `Dict[str, Any]` (Python 3.14+)
+- **Union syntax**: Use `dict[str, Any] | bool` not `Union[dict, bool]`
 
-- Use `pytest.fixture` for mock setup (see `mock_httpx_client` fixture)
-- Mock `httpx.Client` at the module level
-- Reset mocks between test steps when testing multiple API calls
-- Test both success and error scenarios
-- Use `pytest.raises` for exception testing
+### Docstrings (Google Style)
+Required sections: Args, Returns, Raises, Examples. Example from codebase:
+```python
+def get_quote(self, symbols: list[str], fields: list[str] | None = None) -> dict[str, Any]:
+    """
+    Retrieve quotes for the requested financial instruments.
 
-## Dependencies
+    Args:
+        symbols (list[str]): List of instrument symbols (e.g., ["PETR4", "VALE3"]).
+        fields (list[str], optional): List of desired fields. Default: None.
 
-### Runtime Dependencies
-- `httpx>=0.28.1` - HTTP client for API requests
+    Returns:
+        dict[str, Any]: Quote payload or error message.
 
-### Development Dependencies
-- `pytest>=8.3.5` - Testing framework
-- `pytest-cov>=6.1.1` - Code coverage
-- `pytest-env>=1.1.5` - Environment variable management for tests
-- `pytest-mock>=3.14.0` - Mocking utilities
-- `python-dotenv>=1.1.0` - Environment variable loading
-- `ruff>=0.11.10` - Linting and formatting
+    Raises:
+        httpx.RequestError: Connection or SSL error.
+        httpx.HTTPStatusError: HTTP error returned by the API.
 
-## Important Notes
+    Examples:
+        >>> client = Broadcast("username", "password")
+        >>> quotes = client.get_quote(["PETR4", "VALE3"])
+    """
+```
 
-1. **Lock File**: Always use `uv sync --locked` to respect `uv.lock`
-2. **Python Version**: Requires Python 3.14+ (very modern!)
-3. **CI/CD**: GitHub Actions workflow runs on `main` and `develop` branches
-4. **Coverage**: Project aims for high test coverage (currently ~94%)
-5. **License**: MIT License
+### Naming Conventions (PEP 8)
+- **Variables/functions**: `snake_case` (e.g., `refresh_token`, `get_quote`)
+- **Classes**: `PascalCase` (e.g., `Broadcast`, `TestBroadcast`)
+- **Constants**: `UPPER_SNAKE_CASE` (e.g., `DEFAULT_TIMEOUT`)
+- **Private**: Single underscore prefix (e.g., `_internal_method`)
+- **Magic methods**: Double underscore (e.g., `__init__`, `__all__`)
 
-## When Making Changes
+### File Headers
+Include at top of all `.py` files:
+```python
+# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
+```
 
-1. Run tests before and after changes: `uv run pytest`
-2. Check code quality: `uv run ruff check .`
-3. Ensure type hints are present for new functions
-4. Update tests if modifying API client behavior
-5. Keep dependencies locked - only update when necessary
-6. Respect existing code style and patterns
+## CI/CD Configuration
+
+GitHub Actions workflow (`.github/workflows/python-uv-build.yml`):
+- Triggers: Push/PR to `main` or `develop` branches
+- Python version: Read from `.python-version` file (currently 3.14)
+- Coverage upload: Codecov with `unittests` flag
+- Critical step: `uv sync --locked --all-extras --dev` (never install packages manually)
+
+## Common Pitfalls
+
+1. **Lock file drift**: Never run `uv add` or `uv sync` without `--locked` in CI
+2. **Test pollution**: Always `reset_mock()` after `__init__` in tests (login consumes mock)
+3. **SSL in dev**: Use `verify_ssl=False` only for local testing, never commit defaults
+4. **Mutable defaults**: `fields: list[str] | None = None` pattern (check for `[]` inside function)
+5. **Property aliases**: Remember `refreshToken` property when accessing - both work
+6. **Language mixing**: Never mix Portuguese/English in code - stick to English per PEP 8
+
+## Package Structure
+
+- **`src/broadcast/__init__.py`**: Exports only `Broadcast` class
+- **`src/broadcast/py.typed`**: PEP 561 marker for type checking support
+- **`tests/test_datafeed.py`**: Single comprehensive test file (~412 lines, 98% coverage)
+- **`pyproject.toml`**: Uses `hatchling` build backend, dependencies in `[project]` and `[dependency-groups]`
