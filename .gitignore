@@ -14,3 +14,9 @@ wheels/
 # Test coverage
 .coverage
 coverage.xml
+
+# pytest cache
+.pytest_cache/
+
+# Ruff cache
+.ruff_cache/

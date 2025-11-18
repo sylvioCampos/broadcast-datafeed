@@ -115,7 +115,7 @@ class TestBroadcast:
         )
 
         with pytest.raises(httpx.RequestError):
-            broadcast = Broadcast("test_user", "test_password")
+            Broadcast("test_user", "test_password")
 
     def test_login_http_error(self, mock_httpx_client):
         """Tests if login properly handles HTTP errors."""
@@ -128,16 +128,16 @@ class TestBroadcast:
         mock_httpx_client.post.return_value = response
 
         with pytest.raises(httpx.HTTPStatusError):
-            broadcast = Broadcast("test_user", "test_password")
+            Broadcast("test_user", "test_password")
 
     def test_logout(self, mock_httpx_client):
         """Tests if logout is performed correctly."""
         # Setup
         logout_response = MagicMock()
         logout_response.json.return_value = {
-            'success': False, 
-            'code': 'bc_01104', 
-            'message': 'A sessão do usuário está desconectada'
+            "success": False,
+            "code": "bc_01104",
+            "message": "The user session is disconnected",
         }
         mock_httpx_client.get.return_value = logout_response
 
@@ -147,9 +147,9 @@ class TestBroadcast:
 
         # Assert
         assert result == {
-            'success': False, 
-            'code': 'bc_01104', 
-            'message': 'A sessão do usuário está desconectada'
+            "success": False,
+            "code": "bc_01104",
+            "message": "The user session is disconnected",
         }
         mock_httpx_client.get.assert_called_with(
             url="https://svc.aebroadcast.com.br/Authentication/v1/logout"
@@ -244,15 +244,15 @@ class TestBroadcast:
         }
         quote_response.json.return_value = quote_data
 
-        # 1) Instancia e consome o login (mock de login já configurado)
+        # 1) Instantiate and consume the login (login mock already configured)
         broadcast = Broadcast("test_user", "test_password")
         mock_httpx_client.post.assert_called_once()
 
-        # 2) Agora reset e injeta o mock de cotações
+        # 2) Reset and inject the quote mock
         mock_httpx_client.post.reset_mock()
         mock_httpx_client.post.return_value = quote_response
 
-        # 3) Executa e verifica
+        # 3) Execute and assert behavior
         result = broadcast.get_quote(symbols=["PETR4", "VALE3"], fields=["ULT", "VAR"])
 
         # Assert
@@ -272,11 +272,12 @@ class TestBroadcast:
                 "VALE3": {'ULT': '55,35', 'COD': 'VALE3'},
             }    
         }
-        # 1) Instancia e consome o login (mock de login já configurado)
+        quote_response.json.return_value = quote_data
+        # 1) Instantiate and consume the login (login mock already configured)
         broadcast = Broadcast("test_user", "test_password")
         mock_httpx_client.post.assert_called_once()
 
-        # 2) Agora reset e injeta o mock de cotações
+        # 2) Reset and inject the quote mock
         mock_httpx_client.post.reset_mock()
         mock_httpx_client.post.return_value = quote_response
 
@@ -291,10 +292,7 @@ class TestBroadcast:
 
     def test_get_quote_failure(self, mock_httpx_client):
         """Tests if quote retrieval properly handles failures."""
-        # Setup
-        mock_httpx_client.post.side_effect = Exception("API error")
-
-        # Execute
+        # Setup & execute
         broadcast = Broadcast("test_user", "test_password")
         mock_httpx_client.post.reset_mock()  # Reset mock to ignore login call
         mock_httpx_client.post.side_effect = Exception("API error")
