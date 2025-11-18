@@ -14,7 +14,7 @@ This package provides authentication and methods to retrieve financial data, suc
 - 🔐 Simple authentication with the AEBroadcast API
 - 📊 Stock quotes and financial data retrieval
 - 🔄 Automatic authentication token management
-- ⚡ Async HTTP client with `httpx`
+- ⚡ Synchronous HTTP client with `httpx`
 - 🛡️ Robust exception handling
 - ✅ 98% test coverage
 

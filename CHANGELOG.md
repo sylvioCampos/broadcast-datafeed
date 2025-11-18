@@ -14,7 +14,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT License for public distribution
 - Full English documentation (README, CONTRIBUTING, docstrings)
 - Type hints throughout the codebase (PEP 484 compliant)
-- Automatic token refresh functionality
 - Keep-alive mechanism for maintaining active sessions
 
 ### Changed
