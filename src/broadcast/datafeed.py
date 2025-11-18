@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2025 Sylvio Neto
 # SPDX-License-Identifier: MIT
 
 """
@@ -18,14 +17,25 @@ Attributes:
     token (str): Current authentication token.
     refresh_token (str): Token used to refresh the authentication (camelCase alias available).
 
+Security Note:
+    For production environments, always use verify_ssl=True (default) to ensure
+    secure HTTPS connections. Setting verify_ssl=False disables SSL certificate
+    verification and should only be used in development/testing environments.
+
 Examples:
     >>> client = Broadcast("username", "password")
     >>> quotes = client.get_quote(["PETR4", "VALE3"])
+
+    Production (with SSL verification - recommended):
+    >>> client = Broadcast("username", "password", verify_ssl=True)
+
+    Development only (without SSL verification):
+    >>> client = Broadcast("username", "password", verify_ssl=False)
 """
 
 __author__ = "Sylvio Campos Neto"
 __license__ = "MIT"
-__version__ = "0.1.3"
+__version__ = "1.0.0"
 __email__ = "sylvio.campos@gmail.com.br"
 __all__ = ["Broadcast"]
 
@@ -35,14 +45,62 @@ import httpx
 
 
 class Broadcast:
-    def __init__(self, usr: str, pwd: str, keep_alive: bool = False) -> None:
+    """
+    Client for interacting with the AEBroadcast API.
+
+    This class provides authentication and methods to interact with AEBroadcast's
+    financial data services, including retrieving stock quotes.
+
+    Attributes:
+        url (str): Base URL of the AEBroadcast API.
+        usr (str): Username for authentication.
+        pwd (str): Password for authentication.
+        headers (dict[str, str]): HTTP headers used in requests.
+        client (httpx.Client): HTTP client for making API requests.
+        tokens (dict[str, Any]): Authentication tokens received after login.
+        token (str): Current authentication token.
+        refresh_token (str): Token used to refresh authentication.
+
+    Examples:
+        Basic usage:
+        >>> client = Broadcast("username", "password")
+        >>> quotes = client.get_quote(["PETR4", "VALE3"])
+        >>> print(quotes)
+        {'data': {'PETR4': {...}, 'VALE3': {...}}}
+        >>> client.logout()
+
+        With keep_alive:
+        >>> client = Broadcast("username", "password", keep_alive=True)
+        >>> # Session will be kept alive automatically
+    """
+
+    def __init__(self, usr: str, pwd: str, keep_alive: bool = False, verify_ssl: bool = True) -> None:
         """
-        Initialize the Broadcast client, perform login, and store auth tokens.
+        Initialize the Broadcast client, perform login, and store authentication tokens.
 
         Args:
             usr (str): Username used for authentication.
             pwd (str): Password used for authentication.
-            keep_alive (bool, optional): If True, keeps the session alive. Defaults to False.
+            keep_alive (bool, optional): If True, keeps the session alive. Default: False.
+            verify_ssl (bool, optional): If True, verifies SSL certificates. Default: True.
+                For development, can be set to False, but not recommended for
+                production due to security concerns.
+
+        Raises:
+            httpx.RequestError: Connection or SSL error during login.
+            httpx.HTTPStatusError: HTTP error returned by the API during login.
+
+        Examples:
+            >>> client = Broadcast("my_username", "my_password")
+            >>> print(client.token)
+            'eyJhbGc...'  # Authentication token
+
+            With keep_alive:
+            >>> client = Broadcast("username", "password", keep_alive=True)
+            >>> # Session will be kept alive automatically
+
+            Development (without SSL verification - NOT RECOMMENDED FOR PRODUCTION):
+            >>> client = Broadcast("username", "password", verify_ssl=False)
         """
         self.url = "https://svc.aebroadcast.com.br/"
         self.usr: str = usr
@@ -51,7 +109,7 @@ class Broadcast:
             "accept": "application/json",
             "Content-Type": "application/json",
         }
-        self.client = httpx.Client(headers=self.headers, timeout=None, verify=False)
+        self.client = httpx.Client(headers=self.headers, timeout=None, verify=verify_ssl)
         self.tokens: dict[str, Any] = self.login(usr, pwd)
         self.token: str = self.tokens["token"]
         self.refresh_token: str = self.tokens["refreshToken"]
@@ -60,7 +118,7 @@ class Broadcast:
 
     def login(self, usr: str, pwd: str) -> dict[str, str]:
         """
-        Perform login against the API and return the authentication tokens.
+        Perform login against the API and return authentication tokens.
 
         Args:
             usr (str): Username used during login.
@@ -73,6 +131,12 @@ class Broadcast:
             httpx.RequestError: Connection or SSL error.
             httpx.HTTPStatusError: HTTP error returned by the API.
             Exception: Any other unexpected error.
+
+        Examples:
+            >>> client = Broadcast("username", "password")
+            >>> tokens = client.login("username", "password")
+            >>> print(tokens['token'])
+            'eyJhbGc...'
         """
         url: str = self.url + "Authentication/v1/login"
         try:
@@ -104,11 +168,29 @@ class Broadcast:
 
         Returns:
             dict[str, Any]: Response from the API after logout.
+
+        Raises:
+            httpx.RequestError: Connection or SSL error.
+            httpx.HTTPStatusError: HTTP error returned by the API.
+
+        Examples:
+            >>> client = Broadcast("username", "password")
+            >>> result = client.logout()
+            >>> print(result)
+            {'success': False, 'code': 'bc_01104', 'message': 'Session disconnected'}
         """
         url: str = self.url + "Authentication/v1/logout"
         self.client.headers["authorization"] = f"Bearer {self.token}"
-        response: httpx.Response = self.client.get(url=url)
-        return response.json()
+        try:
+            response: httpx.Response = self.client.get(url=url)
+            response.raise_for_status()
+            return response.json()
+        except httpx.RequestError as e:
+            print(f"Request error during logout: {e}")
+            raise
+        except httpx.HTTPStatusError as e:
+            print(f"HTTP error during logout: {e.response.status_code}")
+            raise
 
     def keep_alive(self) -> dict[str, Any]:
         """
@@ -116,19 +198,47 @@ class Broadcast:
 
         Returns:
             dict[str, Any]: Response from the API for the keep-alive request.
+
+        Raises:
+            httpx.RequestError: Connection or SSL error.
+            httpx.HTTPStatusError: HTTP error returned by the API.
+
+        Examples:
+            >>> client = Broadcast("username", "password")
+            >>> result = client.keep_alive()
+            >>> print(result)
+            {'status': 'session_extended'}
         """
         url: str = self.url + "Authentication/v1/keep"
         self.client.headers["authorization"] = f"Bearer {self.token}"
-        response: httpx.Response = self.client.get(url=url)
-        return response.json()
+        try:
+            response: httpx.Response = self.client.get(url=url)
+            response.raise_for_status()
+            return response.json()
+        except httpx.RequestError as e:
+            print(f"Request error during keep_alive: {e}")
+            raise
+        except httpx.HTTPStatusError as e:
+            print(f"HTTP error during keep_alive: {e.response.status_code}")
+            raise
 
     def token_refresh(self) -> dict[str, Any] | bool:
         """
         Refresh the authentication token using the refresh token.
 
         Returns:
-            dict[str, Any]: Outcome of the refresh operation when successful.
-            bool: False in case of an error.
+            dict[str, Any]: Result of the refresh operation when successful.
+                Contains 'status' (int) and 'success' (bool).
+            bool: False in case of error.
+
+        Examples:
+            >>> client = Broadcast("username", "password")
+            >>> result = client.token_refresh()
+            >>> if result["success"]:
+            ...     print("Token refreshed successfully")
+            ...     print(f"New token: {client.token}")
+            Token refreshed successfully
+            New token: eyJhbGc...
         """
         url: str = self.url + "Authentication/v1/refresh"
         self.client.headers["authorization"] = f"Bearer {self.token}"
@@ -156,11 +266,31 @@ class Broadcast:
         Retrieve quotes for the requested financial instruments.
 
         Args:
-            symbols (list[str]): List of instrument symbols.
-            fields (list[str], optional): List of desired fields. Defaults to all fields.
+            symbols (list[str]): List of instrument symbols (e.g., ["PETR4", "VALE3"]).
+            fields (list[str], optional): List of desired fields (e.g., ["ULT", "VAR"]).
+                If None, returns all available fields. Default: None.
 
         Returns:
-            dict[str, Any]: Quote payload or an error message.
+            dict[str, Any]: Quote payload or error message.
+
+        Raises:
+            httpx.RequestError: Connection or SSL error.
+            httpx.HTTPStatusError: HTTP error returned by the API.
+
+        Examples:
+            Request all fields:
+            >>> client = Broadcast("username", "password")
+            >>> quotes = client.get_quote(["PETR4", "VALE3"])
+            >>> print(quotes)
+            {'data': {'PETR4': {'ULT': '28.50', 'VAR': '1.25%'}, ...}}
+
+            Request specific fields:
+            >>> quotes = client.get_quote(
+            ...     symbols=["PETR4", "VALE3"],
+            ...     fields=["ULT", "VAR"]
+            ... )
+            >>> print(quotes['data']['PETR4']['ULT'])
+            '28.50'
         """
         if fields is None:
             fields = []
@@ -170,11 +300,15 @@ class Broadcast:
             response: httpx.Response = self.client.post(
                 url=url, json={"symbols": symbols, "fields": fields}
             )
+            response.raise_for_status()
             data: dict[str, Any] = response.json()
             return data
-        except Exception as e:
-            data: dict[str, Any] = {"success": False, "message": str(e)}
-            return data
+        except httpx.RequestError as e:
+            print(f"Request error during get_quote: {e}")
+            raise
+        except httpx.HTTPStatusError as e:
+            print(f"HTTP error during get_quote: {e.response.status_code}")
+            raise
 
     @property
     def refreshToken(self) -> str:
