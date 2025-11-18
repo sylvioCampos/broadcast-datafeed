@@ -1,7 +1,7 @@
 [project]
 name = "broadcast-datafeed"
 version = "1.0.0"
-description = "Python client for interacting with the AEBroadcast API service"
+description = "Python client for interacting with the AEBroadcast Datafeed API service"
 readme = "README.md"
 authors = [
     { name = "Sylvio Campos Neto", email = "sylvio.campos@gmail.com.br" }
