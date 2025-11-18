@@ -152,11 +152,23 @@ Include at top of all `.py` files:
 
 ## CI/CD Configuration
 
-GitHub Actions workflow (`.github/workflows/python-uv-build.yml`):
-- Triggers: Push/PR to `main` or `develop` branches
-- Python version: Read from `.python-version` file (currently 3.14)
-- Coverage upload: Codecov with `unittests` flag
-- Critical step: `uv sync --locked --all-extras --dev` (never install packages manually)
+### Build & Test Workflow (`.github/workflows/python-uv-build.yml`)
+- **Triggers**: Push/PR to `main` or `develop` branches
+- **Python version**: Read from `.python-version` file (currently 3.14)
+- **Coverage upload**: Codecov with `unittests` flag
+- **Critical step**: `uv sync --locked --all-extras --dev` (never install packages manually)
+
+### PyPI Publishing Workflow (`.github/workflows/publish-pypi.yml`)
+- **Auto-publish**: Triggered on GitHub release publication → publishes to PyPI using trusted publishing
+- **Manual publish**: Workflow dispatch with environment choice (testpypi/pypi)
+- **Build process**: Runs tests, builds package with `uv build`, uploads artifacts
+- **Security**: Uses OIDC trusted publishing (no API tokens needed for PyPI)
+- **TestPyPI**: Requires `TEST_PYPI_API_TOKEN` secret for testing
+
+#### Publishing Steps:
+1. **Create release**: Tag version (e.g., `v1.0.0`) and publish GitHub release → auto-deploys to PyPI
+2. **Test first**: Use workflow dispatch → select "testpypi" → verify at test.pypi.org
+3. **Manual publish**: Use workflow dispatch → select "pypi" (requires approval in GitHub environments)
 
 ## Common Pitfalls
 
