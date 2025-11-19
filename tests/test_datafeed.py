@@ -21,7 +21,7 @@ from unittest.mock import patch, MagicMock
 import httpx
 from dotenv import load_dotenv
 import os
-from broadcast import Broadcast
+from broadcast_datafeed import Broadcast
 
 def pytest_configure(config):
     """Load test environment variables before tests run."""
