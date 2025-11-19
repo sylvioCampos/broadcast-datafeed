@@ -16,7 +16,7 @@ wheels = [
 ]
 
 [[package]]
-name = "broadcast"
+name = "broadcast-datafeed"
 version = "1.0.0"
 source = { editable = "." }
 dependencies = [
