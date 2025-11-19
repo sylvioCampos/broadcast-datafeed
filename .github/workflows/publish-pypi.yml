@@ -110,7 +110,7 @@ jobs:
       name: pypi
       url: https://pypi.org/project/broadcast-datafeed/
     permissions:
-      contents: read
+      id-token: write
 
     steps:
       - name: Download build artifacts
