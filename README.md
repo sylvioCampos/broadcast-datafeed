@@ -1,10 +1,10 @@
-[![Build Status](https://github.com/sylvioCampos/broadcast/actions/workflows/python-uv-build.yml/badge.svg)](https://github.com/sylvioCampos/broadcast/actions)
-[![Coverage Status](https://codecov.io/gh/sylvioCampos/broadcast/branch/main/graph/badge.svg)](https://codecov.io/gh/sylvioCampos/broadcast)
-[![Last Commit](https://img.shields.io/github/last-commit/sylvioCampos/broadcast.svg)](https://github.com/sylvioCampos/broadcast/commits/main)
+[![Build Status](https://github.com/sylvioCampos/broadcast-datafeed/actions/workflows/python-uv-build.yml/badge.svg)](https://github.com/sylvioCampos/broadcast-datafeed/actions)
+[![Coverage Status](https://codecov.io/gh/sylvioCampos/broadcast-datafeed/branch/main/graph/badge.svg)](https://codecov.io/gh/sylvioCampos/broadcast-datafeed)
+[![Last Commit](https://img.shields.io/github/last-commit/sylvioCampos/broadcast-datafeed.svg)](https://github.com/sylvioCampos/broadcast-datafeed/commits/main)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python Version](https://img.shields.io/badge/python-3.14%2B-blue.svg)](https://www.python.org/downloads/)
 
-# Broadcast
+# Broadcast Datafeed
 
 A Python client for interacting with the AEBroadcast API service.  
 This package provides authentication and methods to retrieve financial data, such as stock quotes, from the AEBroadcast platform.
@@ -15,28 +15,30 @@ This package provides authentication and methods to retrieve financial data, suc
 - 📊 Stock quotes and financial data retrieval
 - 🔄 Automatic authentication token management
 - ⚡ Synchronous HTTP client with `httpx`
+- 🔒 SSL verification via `ssl.SSLContext` (default CA bundle from `certifi`)
+- 🧾 Optional custom CA bundle support via `ssl_pem_path`
 - 🛡️ Robust exception handling
-- ✅ 98% test coverage
+- ✅ 100% test coverage
 
 ## 🚀 Installation
 
 ### Via pip (PyPI)
 
 ```bash
-pip install broadcast
+pip install broadcast-datafeed
 ```
 
 ### Via Git
 
 ```bash
-pip install git+https://github.com/sylvioCampos/broadcast.git
+pip install git+https://github.com/sylvioCampos/broadcast-datafeed.git
 ```
 
 ### For Development
 
 ```bash
-git clone https://github.com/sylvioCampos/broadcast.git
-cd broadcast
+git clone https://github.com/sylvioCampos/broadcast-datafeed.git
+cd broadcast-datafeed
 uv sync --locked --all-extras --dev
 ```
 
@@ -45,7 +47,7 @@ uv sync --locked --all-extras --dev
 ### Basic Example
 
 ```python
-from broadcast import Broadcast
+from broadcast_datafeed import Broadcast
 
 # Initialize the client
 client = Broadcast("your_username", "your_password")
@@ -101,7 +103,7 @@ if result["success"]:
 
 ```python
 import httpx
-from broadcast import Broadcast
+from broadcast_datafeed import Broadcast
 
 try:
     client = Broadcast("username", "password")
@@ -119,7 +121,13 @@ except httpx.HTTPStatusError as e:
 #### Initialization
 
 ```python
-Broadcast(usr: str, pwd: str, keep_alive: bool = False, verify_ssl: bool = True)
+Broadcast(
+    usr: str,
+    pwd: str,
+    keep_alive: bool = False,
+    verify_ssl: bool = True,
+    ssl_pem_path: str | None = None,
+)
 ```
 
 **Parameters:**
@@ -127,6 +135,7 @@ Broadcast(usr: str, pwd: str, keep_alive: bool = False, verify_ssl: bool = True)
 - `pwd` (str): Password for authentication
 - `keep_alive` (bool, optional): If `True`, keeps the session alive. Default: `False`
 - `verify_ssl` (bool, optional): If `True`, verifies SSL certificates. Default: `True`
+- `ssl_pem_path` (str, optional): Path to a PEM-encoded CA bundle file to load into the SSL context (in addition to `certifi`). Default: `None`
 
 **Raises:**
 - `httpx.RequestError`: Connection or SSL error
@@ -190,7 +199,7 @@ uv sync --locked --all-extras --dev
 
 ```bash
 # Run all tests with coverage
-uv run pytest --cov --cov=broadcast --cov-report=term-missing
+uv run pytest --cov=broadcast_datafeed --cov-report=term-missing
 
 # Run specific test file
 uv run pytest tests/test_datafeed.py -v
@@ -211,7 +220,7 @@ uv run ruff check . --fix
 ```
 broadcast/
 ├── src/
-│   └── broadcast/
+│   └── broadcast_datafeed/
 │       ├── __init__.py      # Package exports
 │       ├── datafeed.py      # Main Broadcast class
 │       └── py.typed         # PEP 561 marker
