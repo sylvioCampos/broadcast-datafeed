@@ -53,7 +53,7 @@ __version__ = "1.1.0"
 __email__ = "sylvio.campos@gmail.com.br"
 __all__ = ["Broadcast"]
 
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 import certifi
@@ -95,7 +95,7 @@ class Broadcast:
         pwd: str,
         keep_alive: bool = False,
         verify_ssl: bool = True,
-        ssl_pem_path: Optional[str] = None,
+        ssl_pem_path: str | None = None,
     ) -> None:
         """
         Initialize the Broadcast client, perform login, and store authentication tokens.
