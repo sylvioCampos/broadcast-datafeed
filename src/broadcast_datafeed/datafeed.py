@@ -22,6 +22,10 @@ Security Note:
     secure HTTPS connections. Setting verify_ssl=False disables SSL certificate
     verification and should only be used in development/testing environments.
 
+    When verify_ssl=True, this client configures certificate verification via an
+    ssl.SSLContext (built with certifi's CA bundle by default). You can also
+    provide an additional custom CA bundle path via ssl_pem_path.
+
 Examples:
     >>> client = Broadcast("username", "password")
     >>> quotes = client.get_quote(["PETR4", "VALE3"])
@@ -31,18 +35,29 @@ Examples:
 
     Development only (without SSL verification):
     >>> client = Broadcast("username", "password", verify_ssl=False)
+
+    Custom CA bundle (additional trust store):
+    >>> client = Broadcast(
+    ...     "username",
+    ...     "password",
+    ...     verify_ssl=True,
+    ...     ssl_pem_path="/path/to/custom-ca.pem",
+    ... )
 """
+
+from __future__ import annotations
 
 __author__ = "Sylvio Campos Neto"
 __license__ = "MIT"
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __email__ = "sylvio.campos@gmail.com.br"
 __all__ = ["Broadcast"]
 
-from typing import Any
+from typing import Any, Optional
 
 import httpx
-
+import certifi
+import ssl
 
 class Broadcast:
     """
@@ -74,7 +89,14 @@ class Broadcast:
         >>> # Session will be kept alive automatically
     """
 
-    def __init__(self, usr: str, pwd: str, keep_alive: bool = False, verify_ssl: bool = True) -> None:
+    def __init__(
+        self,
+        usr: str,
+        pwd: str,
+        keep_alive: bool = False,
+        verify_ssl: bool = True,
+        ssl_pem_path: Optional[str] = None,
+    ) -> None:
         """
         Initialize the Broadcast client, perform login, and store authentication tokens.
 
@@ -85,6 +107,9 @@ class Broadcast:
             verify_ssl (bool, optional): If True, verifies SSL certificates. Default: True.
                 For development, can be set to False, but not recommended for
                 production due to security concerns.
+            ssl_pem_path (str, optional): Path to a PEM-encoded CA bundle file.
+                When provided, it will be loaded into the SSL context in addition
+                to certifi's default CA bundle. Default: None.
 
         Raises:
             httpx.RequestError: Connection or SSL error during login.
@@ -109,7 +134,9 @@ class Broadcast:
             "accept": "application/json",
             "Content-Type": "application/json",
         }
-        self.client = httpx.Client(headers=self.headers, timeout=None, verify=verify_ssl)
+        self.ssl_context = ssl.create_default_context(cafile=certifi.where())
+        self.ssl_context.load_verify_locations(cafile=ssl_pem_path) if ssl_pem_path else None
+        self.client = httpx.Client(headers=self.headers, timeout=None, verify=self.ssl_context) if verify_ssl else httpx.Client(headers=self.headers, timeout=None, verify=False)
         self.tokens: dict[str, Any] = self.login(usr, pwd)
         self.token: str = self.tokens["token"]
         self.refresh_token: str = self.tokens["refreshToken"]

@@ -1,6 +1,6 @@
 [project]
 name = "broadcast-datafeed"
-version = "1.0.0"
+version = "1.1.0"
 description = "Python client for interacting with the AEBroadcast Datafeed API service"
 readme = "README.md"
 authors = [
@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
+    "certifi>=2025.11.12",
     "httpx>=0.28.1",
 ]
 

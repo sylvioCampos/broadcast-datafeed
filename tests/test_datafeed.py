@@ -17,10 +17,11 @@ Tests cover:
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import ANY, MagicMock, patch
 import httpx
 from dotenv import load_dotenv
 import os
+import ssl
 from broadcast_datafeed import Broadcast
 
 def pytest_configure(config):
@@ -123,8 +124,10 @@ class TestBroadcast:
             mock_client_class.assert_called_with(
                 headers={"accept": "application/json", "Content-Type": "application/json"},
                 timeout=None,
-                verify=True
+                verify=ANY,
             )
+            verify_arg = mock_client_class.call_args.kwargs["verify"]
+            assert isinstance(verify_arg, ssl.SSLContext)
 
             # Test with verify_ssl=False
             mock_client_class.reset_mock()
@@ -134,6 +137,41 @@ class TestBroadcast:
                 timeout=None,
                 verify=False
             )
+
+    def test_init_with_ssl_pem_path_loads_custom_ca(self):
+        """Tests if ssl_pem_path is loaded into the SSL context when provided."""
+        with (
+            patch("broadcast_datafeed.datafeed.certifi.where") as mock_certifi_where,
+            patch("broadcast_datafeed.datafeed.ssl.create_default_context") as mock_create_default_context,
+            patch("httpx.Client") as mock_client_class,
+        ):
+            mock_certifi_where.return_value = "/tmp/cacert.pem"
+            ssl_context = MagicMock()
+            mock_create_default_context.return_value = ssl_context
+
+            client_instance = MagicMock()
+            client_instance.headers = {}
+            mock_client_class.return_value = client_instance
+
+            login_response = MagicMock()
+            login_response.json.return_value = {
+                "token": "fake_token",
+                "refreshToken": "fake_refresh_token",
+            }
+            client_instance.post.return_value = login_response
+
+            _ = Broadcast(
+                "test_user",
+                "test_password",
+                verify_ssl=True,
+                ssl_pem_path="/path/custom-ca.pem",
+            )
+
+            mock_create_default_context.assert_called_once_with(cafile="/tmp/cacert.pem")
+            ssl_context.load_verify_locations.assert_called_once_with(
+                cafile="/path/custom-ca.pem"
+            )
+            assert mock_client_class.call_args.kwargs["verify"] is ssl_context
 
     def test_login_success(self, mock_httpx_client, test_credentials):
         """Tests if login is successful."""
@@ -177,6 +215,27 @@ class TestBroadcast:
 
         with pytest.raises(httpx.HTTPStatusError):
             Broadcast("test_user", "test_password")
+
+    def test_login_unexpected_error(self, mock_httpx_client):
+        """Tests if login re-raises unexpected errors (generic Exception handler)."""
+        broadcast = Broadcast("test_user", "test_password")
+
+        mock_httpx_client.post.reset_mock()
+        response = MagicMock()
+        response.raise_for_status.return_value = None
+        response.json.side_effect = ValueError("Invalid JSON")
+        mock_httpx_client.post.return_value = response
+
+        with pytest.raises(ValueError):
+            broadcast.login("test_user", "test_password")
+
+    def test_refresh_token_property_setter(self, mock_httpx_client):
+        """Tests the backward-compatible refreshToken property setter."""
+        broadcast = Broadcast("test_user", "test_password")
+        broadcast.refreshToken = "new_refresh_token"
+
+        assert broadcast.refresh_token == "new_refresh_token"
+        assert broadcast.refreshToken == "new_refresh_token"
 
     def test_logout(self, mock_httpx_client):
         """Tests if logout is performed correctly."""
