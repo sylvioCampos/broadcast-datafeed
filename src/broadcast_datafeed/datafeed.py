@@ -134,9 +134,23 @@ class Broadcast:
             "accept": "application/json",
             "Content-Type": "application/json",
         }
-        self.ssl_context = ssl.create_default_context(cafile=certifi.where())
-        self.ssl_context.load_verify_locations(cafile=ssl_pem_path) if ssl_pem_path else None
-        self.client = httpx.Client(headers=self.headers, timeout=None, verify=self.ssl_context) if verify_ssl else httpx.Client(headers=self.headers, timeout=None, verify=False)
+
+        if verify_ssl:
+            self.ssl_context: ssl.SSLContext | None = ssl.create_default_context(cafile=certifi.where())
+            if ssl_pem_path:
+                self.ssl_context.load_verify_locations(cafile=ssl_pem_path)
+            self.client = httpx.Client(
+                headers=self.headers,
+                timeout=None,
+                verify=self.ssl_context,
+            )
+        else:
+            self.ssl_context = None
+            self.client = httpx.Client(
+                headers=self.headers,
+                timeout=None,
+                verify=False,
+            )
         self.tokens: dict[str, Any] = self.login(usr, pwd)
         self.token: str = self.tokens["token"]
         self.refresh_token: str = self.tokens["refreshToken"]
